@@ -1,15 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 function App() {
   const [word, setWord] = useState('');
   const [definition, setDefinition] = useState('');
   const [background, setBackground] = useState('#FFFFFF');
+  const [isLoading, setIsLoading] = useState(true);
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
-    fetchWord();
+    if (!fetchedRef.current) {
+      fetchWord();
+      fetchedRef.current = true;
+    }
   }, []);
 
   const fetchWord = async () => {
+    setIsLoading(true);
     try {
       const response = await fetch('https://oneword-backend.onrender.com/api/word-of-the-day');
       const data = await response.json();
@@ -18,6 +24,8 @@ function App() {
       setBackground(data.color);
     } catch (error) {
       console.error('Error fetching word:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -57,11 +65,38 @@ function App() {
     fontWeight: 'bold',
   };
 
+  const loaderStyle: React.CSSProperties = {
+    fontSize: '3rem',
+    marginBottom: '20px',
+  };
+
+  const dotStyle: React.CSSProperties = {
+    animation: 'blink 1.4s infinite both',
+    animationDelay: '0s',
+  };
+
+  const Loader = () => (
+    <div style={loaderStyle}>
+      <span style={dotStyle}>.</span>
+      <span style={{...dotStyle, animationDelay: '0.2s'}}>.</span>
+      <span style={{...dotStyle, animationDelay: '0.4s'}}>.</span>
+    </div>
+  );
+
   return (
     <div style={appStyle}>
-      <h1 style={wordStyle}>{word}</h1>
-      <p style={definitionStyle}>{definition}</p>
-      <button style={buttonStyle} onClick={fetchWord}>Get new word</button>
+      {isLoading ? (
+        <Loader />
+      ) : (
+        <>
+          <h1 style={wordStyle}>{word}</h1>
+          <p style={definitionStyle}>{definition}</p>
+        </>
+      )}
+      <button style={buttonStyle} onClick={() => {
+        fetchedRef.current = false;
+        fetchWord();
+      }}>Get new word</button>
     </div>
   );
 }
