@@ -8,6 +8,10 @@ function App() {
   const [isHovered, setIsHovered] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
   const fetchedRef = useRef(false);
+  const [seenWords, setSeenWords] = useState<string[]>(() => {
+    const storedSeenWords = localStorage.getItem('seenWords');
+    return storedSeenWords ? JSON.parse(storedSeenWords) : [];
+  });
 
   useEffect(() => {
     if (!fetchedRef.current) {
@@ -16,15 +20,41 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem('seenWords', JSON.stringify(seenWords));
+  }, [seenWords]);
+
   const fetchWord = async () => {
     setIsLoading(true);
     setFadeIn(false);
     try {
-      const response = await fetch('https://oneword-backend.onrender.com/api/word-of-the-day');
-      const data = await response.json();
-      setWord(data.word);
-      setDefinition(data.definition);
-      setBackground(data.color);
+      let newWord: string = '';
+      let newDefinition: string = '';
+      let newColor: string = '';
+      let attempts = 0;
+      const maxAttempts = 50; // Adjust this value as needed
+
+      do {
+        const response = await fetch('https://oneword-backend.onrender.com/api/word-of-the-day');
+        const data: { word: string; definition: string; color: string } = await response.json();
+        newWord = data.word;
+        newDefinition = data.definition;
+        newColor = data.color;
+        attempts++;
+
+        if (attempts >= maxAttempts) {
+          // If we've tried too many times, reset seenWords and use the current word
+          setSeenWords([]);
+          break;
+        }
+      } while (seenWords.includes(newWord));
+
+      setWord(newWord);
+      setDefinition(newDefinition);
+      setBackground(newColor);
+
+      // Update seen words
+      setSeenWords(prevSeenWords => [...prevSeenWords, newWord]);
     } catch (error) {
       console.error('Error fetching word:', error);
     } finally {
@@ -69,7 +99,7 @@ function App() {
     padding: '10px 20px',
     backgroundColor: isHovered ? '#000' : '#00000016',
     color: isHovered ? '#fff' : '#000',
-    border: '2px solid #000',
+    border: '0px solid #000',
     borderRadius: '12px',
     cursor: 'pointer',
     fontWeight: 'bold',
@@ -105,10 +135,7 @@ function App() {
           <p style={definitionStyle}>{definition}</p>
           <button 
             style={buttonStyle} 
-            onClick={() => {
-              fetchedRef.current = false;
-              fetchWord();
-            }}
+            onClick={fetchWord}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
           >
